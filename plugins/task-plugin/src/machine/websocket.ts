@@ -44,10 +44,13 @@ export class ReconnectingWebSocket {
         });
 
         this.ws.on('close', (code: number, reason: string) => {
+            console.log('+++++++++++++++++++++++++ WS on close ' + code + ' /// ' + reason);
             switch (code) {
                 case 1000:
+                    console.log('++++ WS on close code 1000 ');
                     break;
                 default:
+                    console.log('++++ WS on close code NOT 1000 ');
                     this.reconnect(reason);
                     break;
             }
@@ -56,11 +59,14 @@ export class ReconnectingWebSocket {
 
         // tslint:disable-next-line:no-any
         this.ws.on('error', (e: any) => {
+            console.log('+++++++++++++++++++++++++ WS on ERROR ' + e.code);
             switch (e.code) {
                 case 'ECONNREFUSED':
+                    console.log('+++ WS on ERROR +++ ECONNREFUSED');
                     this.reconnect(e);
                     break;
                 default:
+                    console.log('+++ WS on ERROR +++ NOT ECONNREFUSED');
                     this.onError(e);
                     break;
             }
@@ -77,10 +83,13 @@ export class ReconnectingWebSocket {
     }
 
     public close() {
-        this.ws.close();
+        console.log('!!!!!!!!!!!!! close 1000');
+        this.ws.removeAllListeners();
+        this.ws.close(1000);
     }
 
     private reconnect(reason: string) {
+        console.log('++++ WS RECONNECT ');
         this.logger.warn(`WebSocket: Reconnecting in ${ReconnectingWebSocket.RECONNECTION_DELAY}ms due to ${reason}`);
         this.ws.removeAllListeners();
         setTimeout(() => {

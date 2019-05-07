@@ -11,6 +11,7 @@
 import { injectable, inject } from 'inversify';
 import * as che from '@eclipse-che/plugin';
 import { che as cheApi } from '@eclipse-che/api';
+import * as theia from '@theia/plugin';
 import { Task } from '@theia/plugin';
 import { CHE_TASK_TYPE, MACHINE_NAME_ATTRIBUTE, PREVIEW_URL_ATTRIBUTE, WORKING_DIR_ATTRIBUTE, CheTaskDefinition, Target } from './task-protocol';
 import { MachinesPicker } from '../machine/machines-picker';
@@ -67,11 +68,14 @@ export class CheTaskProvider {
             },
             name: task.name,
             source: task.source,
+            scope: task.scope,
             execution: task.execution
         };
     }
 
     private toTask(command: cheApi.workspace.Command): Task {
+        const workspaceFolders = theia.workspace.workspaceFolders;
+        const scope = workspaceFolders ? workspaceFolders[0] : theia.TaskScope.Global;
         return {
             definition: {
                 type: CHE_TASK_TYPE,
@@ -84,6 +88,7 @@ export class CheTaskProvider {
             },
             name: `${command.name}`,
             source: CHE_TASK_TYPE,
+            scope: scope
         };
     }
 

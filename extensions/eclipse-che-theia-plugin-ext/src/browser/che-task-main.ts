@@ -10,6 +10,7 @@
 import { CheTask, CheTaskMain, CheTaskService, CheTaskClient, PLUGIN_RPC_CONTEXT } from '../common/che-protocol';
 import { RPCProtocol } from '@theia/plugin-ext/lib/api/rpc-protocol';
 import { interfaces, injectable } from 'inversify';
+import { TaskExitedEvent } from '@eclipse-che/plugin';
 
 @injectable()
 export class CheTaskMainImpl implements CheTaskMain {
@@ -21,7 +22,9 @@ export class CheTaskMainImpl implements CheTaskMain {
         this.cheTaskClient = container.get(CheTaskClient);
         this.cheTaskClient.onKillEvent(id => proxy.$killTask(id));
         this.cheTaskClient.setTaskInfoHandler(id => proxy.$getTaskInfo(id));
+        this.cheTaskClient.setTaskExitedHandler(id => proxy.$onTaskExited(id));
         this.cheTaskClient.setRunTaskHandler((id, config, ctx) => proxy.$runTask(id, config, ctx));
+        console.log('**** CheTaskMainImpl **** constructor ');
     }
     $registerTaskRunner(type: string): Promise<void> {
         return this.delegate.registerTaskRunner(type);
@@ -29,5 +32,10 @@ export class CheTaskMainImpl implements CheTaskMain {
 
     $disposeTaskRunner(type: string): Promise<void> {
         return this.delegate.disposeTaskRunner(type);
+    }
+
+    $fireTaskExited(event: TaskExitedEvent): Promise<void> {
+        console.log('**** CheTaskMainImpl **** $fireTaskExited ' + JSON.stringify(event));
+        return this.delegate.fireTaskExited(event);
     }
 }

@@ -17,6 +17,8 @@ export class CheTaskClientImpl implements CheTaskClient {
     private readonly onKillEventEmitter: Emitter<number>;
     private taskInfoHandlers: ((id: number) => Promise<TaskInfo>)[] = [];
     private runTaskHandlers: ((id: number, config: TaskConfiguration, ctx?: string) => Promise<void>)[] = [];
+    private taskExitedHandlers: ((id: number) => Promise<void>)[] = [];
+
     constructor() {
         this.onKillEventEmitter = new Emitter<number>();
     }
@@ -29,13 +31,37 @@ export class CheTaskClientImpl implements CheTaskClient {
     }
 
     async getTaskInfo(id: number): Promise<TaskInfo | undefined> {
+        console.log('///////////////////////////////////////// getTaskInfo ');
         for (const taskInfoHandler of this.taskInfoHandlers) {
-            const taskInfo = await taskInfoHandler(id);
-            if (taskInfo) {
-                return taskInfo;
+            console.log('//////////// getTaskInfo ' + id);
+            try {
+                const taskInfo = await taskInfoHandler(id);
+                console.log('//////////// getTaskInfo //// after run taskInfoHandler' + id);
+                if (taskInfo) {
+                    console.log('//////////// getTaskInfo //// RETURN task info ' + id);
+                    return taskInfo;
+                }
+            } catch (e) {
+                // allow another hanlers to handle request
+                console.log(console.log('//////////// getTaskInfo  //// ERROR ' + id));
             }
         }
+        console.log('//////////// getTaskInfo //// RETURN UNDEFINED ' + id);
         return undefined;
+    }
+
+    async onTaskExited(id: number): Promise<void> {
+        console.log('///////////////////////////////////////// onTaskExited ');
+        for (const taskExitedHandler of this.taskExitedHandlers) {
+            console.log('//////////// onTaskExited ' + id);
+            try {
+                await taskExitedHandler(id);
+                console.log('//////////// onTaskExited //// after run taskExitedHandler' + id);
+            } catch (e) {
+                // allow another hanlers to handle request
+                console.log(console.log('//////////// onTaskExited  //// ERROR ' + id + ' //// ' + e));
+            }
+        }
     }
 
     get onKillEvent(): Event<number> {
@@ -47,10 +73,17 @@ export class CheTaskClientImpl implements CheTaskClient {
     }
 
     setTaskInfoHandler(handler: (id: number) => Promise<TaskInfo>) {
+        console.log('//////////// setTaskInfoHandler ');
         this.taskInfoHandlers.push(handler);
     }
 
     setRunTaskHandler(handler: (id: number, config: TaskConfiguration, ctx?: string) => Promise<void>) {
+        console.log('//////////// setRunTaskHandler ');
         this.runTaskHandlers.push(handler);
+    }
+
+    setTaskExitedHandler(handler: (id: number) => Promise<void>) {
+        console.log('//////////// setTaskExitedHandler ');
+        this.taskExitedHandlers.push(handler);
     }
 }

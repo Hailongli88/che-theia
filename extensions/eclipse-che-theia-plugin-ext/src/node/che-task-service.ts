@@ -12,6 +12,7 @@ import { injectable, interfaces } from 'inversify';
 import { Task, TaskManager, TaskOptions, TaskRunnerRegistry } from '@theia/task/lib/node';
 import { Disposable, ILogger } from '@theia/core';
 import { TaskConfiguration, TaskInfo } from '@theia/task/lib/common/task-protocol';
+import { TaskExitedEvent } from '@eclipse-che/plugin';
 
 @injectable()
 export class CheTaskServiceImpl implements CheTaskService {
@@ -19,6 +20,7 @@ export class CheTaskServiceImpl implements CheTaskService {
     private readonly taskManager: TaskManager;
     private readonly logger: ILogger;
     private readonly disposableMap: Map<string, Disposable>;
+    private readonly cheTasks: CheTask[] = [];
     private readonly clients: CheTaskClient[];
     private taskId: number;
     constructor(container: interfaces.Container) {
@@ -28,6 +30,7 @@ export class CheTaskServiceImpl implements CheTaskService {
         this.disposableMap = new Map();
         this.clients = [];
         this.taskId = 0;
+        console.log('////// che task service  === new CheTaskServiceImpl ');
     }
 
     async registerTaskRunner(type: string): Promise<void> {
@@ -42,7 +45,10 @@ export class CheTaskServiceImpl implements CheTaskService {
             for (const client of this.clients) {
                 await client.runTask(id, config, ctx);
             }
-            return new CheTask(id, this.taskManager, this.logger, { label: config.label, config, context: ctx }, this.clients);
+            const cheTask = new CheTask(id, this.taskManager, this.logger, { label: config.label, config, context: ctx }, this.clients);
+            console.log('////// che task service  === set che task ' + id);
+            this.cheTasks.push(cheTask);
+            return cheTask;
         };
     }
 
@@ -67,6 +73,33 @@ export class CheTaskServiceImpl implements CheTaskService {
             this.clients.splice(idx, 1);
         }
     }
+
+    async fireTaskExited(event: TaskExitedEvent): Promise<void> {
+        console.log('////// che task service  === fire task exited ' + JSON.stringify(event));
+        let exitedTask: CheTask | undefined;
+        for (const task of this.cheTasks) {
+            console.log('////// che task service  === for ' + task.id);
+            const runtimeInfo = await task.getRuntimeInfo();
+            if (runtimeInfo.execId === event.execId || runtimeInfo.taskId === event.taskId) {
+                console.log('////// che task service  === fire exec exited === +!!!+ FOUND ' + JSON.stringify(runtimeInfo));
+                exitedTask = task;
+
+                task.fireTaskExited({ taskId: task.id, code: event.code, ctx: runtimeInfo.ctx });
+                break;
+            }
+        }
+
+        if (!exitedTask) {
+            return;
+        }
+
+        exitedTask.onTaskExited();
+
+        const index = this.cheTasks.indexOf(exitedTask);
+        if (index > -1) {
+            this.cheTasks.splice(index, 1);
+        }
+    }
 }
 
 class CheTask extends Task {
@@ -85,18 +118,48 @@ class CheTask extends Task {
         for (const client of this.clients) {
             const taskInfo = await client.getTaskInfo(this.taskId);
             if (taskInfo) {
-                return {
-                    taskId: this.taskId,
-                    terminalId: taskInfo.terminalId,
-                    ctx: taskInfo.ctx,
-                    config: taskInfo.config
-                };
+                console.log('////// che task service  === getRuntimeInfo ' + JSON.stringify(taskInfo));
+                return this.toTaskInfo(taskInfo);
             }
         }
-        throw new Error('Information not found');
+        throw new Error(`Runtime Information for task ${this.options.label} is not found`);
+    }
+
+    async onTaskExited(): Promise<void> {
+        for (const client of this.clients) {
+            await client.onTaskExited(this.taskId);
+        }
     }
 
     async kill(): Promise<void> {
         this.clients.forEach(client => client.killTask(this.taskId));
+    }
+
+    fireTaskExited(event: TaskExitedEvent): void {
+        console.log('////// che task service  === fire task exited ' + event.taskId);
+        super.fireTaskExited({ taskId: event.taskId, code: event.code, ctx: event.ctx });
+    }
+
+    private toTaskInfo(runtimeInfo: TaskInfo): TaskInfo {
+        const { taskId, terminalId, ctx, config, ...properties } = runtimeInfo;
+        console.log('////// che task service  === toTaskInfo taskId ' + taskId);
+        const result = {
+            taskId: this.taskId,
+            terminalId,
+            ctx,
+            config
+        };
+
+        if (!properties) {
+            return result;
+        }
+
+        for (const key in properties) {
+            if (properties.hasOwnProperty(key)) {
+                result[key] = properties[key];
+            }
+        }
+        console.log('////// che task service  === toTaskInfo ' + JSON.stringify(result));
+        return result;
     }
 }

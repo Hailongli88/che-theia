@@ -8,9 +8,8 @@
  * SPDX-License-Identifier: EPL-2.0
  **********************************************************************/
 import { CheTask, CheTaskMain, PLUGIN_RPC_CONTEXT } from '../common/che-protocol';
-import { TaskRunner, Disposable, Task, TaskInfo } from '@eclipse-che/plugin';
+import { TaskRunner, Disposable, Task, TaskInfo, TaskExitedEvent, TaskConfiguration } from '@eclipse-che/plugin';
 import { RPCProtocol } from '@theia/plugin-ext/lib/api/rpc-protocol';
-import { TaskConfiguration } from '@theia/task/lib/common';
 
 export class CheTaskImpl implements CheTask {
     private readonly cheTaskMain: CheTaskMain;
@@ -20,6 +19,7 @@ export class CheTaskImpl implements CheTask {
         this.cheTaskMain = rpc.getProxy(PLUGIN_RPC_CONTEXT.CHE_TASK_MAIN);
         this.runnerMap = new Map();
         this.taskMap = new Map();
+        console.log('++++++++++++++++++ new Che Task Impl');
     }
     async registerTaskRunner(type: string, runner: TaskRunner): Promise<Disposable> {
         this.runnerMap.set(type, runner);
@@ -48,21 +48,29 @@ export class CheTaskImpl implements CheTask {
     }
 
     async $getTaskInfo(id: number): Promise<TaskInfo | undefined> {
+        console.log('+++ Che Task Impl +++ get task info ' + id);
         const task = this.taskMap.get(id);
         if (task) {
+            console.log('+++ Che Task Impl +++ task is found ' + id);
             return task.getRuntimeInfo();
+        } else {
+            console.log('+++ Che Task Impl +++ task NOT found ' + id);
         }
     }
 
-    async fireTaskExited(taskId: number): Promise<void> {
-        let id: number | undefined;
-        this.taskMap.forEach((value: Task, key: number) => {
-            if (value.getRuntimeInfo().taskId === taskId) {
-                id = key;
-            }
-        });
-        if (id) {
+    async $onTaskExited(id: number): Promise<void> {
+        console.log('+++ Che Task Impl +++ onTaskExited ' + id);
+        const task = this.taskMap.get(id);
+        if (task) {
+            console.log('+++ Che Task Impl +++ task found ' + id);
             this.taskMap.delete(id);
+        } else {
+            console.log('+++ Che Task Impl +++ task NOT found ' + id);
         }
+    }
+
+    async fireTaskExited(event: TaskExitedEvent): Promise<void> {
+        console.log('+++ Che Task Impl +++ fire task exited ' + JSON.stringify(event));
+        this.cheTaskMain.$fireTaskExited(event);
     }
 }
