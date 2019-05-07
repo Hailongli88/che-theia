@@ -87,7 +87,7 @@ export class CheTaskEventsHandler {
             return;
         }
 
-        this.tasksPreviewManager.onTaskStateChanged(task);
+        this.tasksPreviewManager.onTaskCompleted(task);
     }
 
     async askUser(message: string, url: string) {

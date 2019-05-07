@@ -55,7 +55,7 @@ export class TasksPreviewManager {
 
         const panel = this.providePanel();
         panel.webview.html = previewsWidget.getHtml();
-        panel.reveal();
+        panel.reveal(undefined, undefined, true);
     }
 
     onTaskStarted(task: theia.Task) {
@@ -66,10 +66,6 @@ export class TasksPreviewManager {
         if (this.currentPanel && this.currentPanel.visible) {
             this.showPreviews();
         }
-    }
-
-    onPanelActivated() {
-        this.showPreviews();
     }
 
     // tslint:disable-next-line:no-any
@@ -100,7 +96,7 @@ export class TasksPreviewManager {
         this.currentPanel.onDidDispose(() => { this.currentPanel = undefined; }, undefined, context.subscriptions);
         this.currentPanel.onDidChangeViewState(event => {
             if (event.webviewPanel.active) {
-                this.onPanelActivated();
+                this.showPreviews();
             }
         }, undefined, context.subscriptions);
 
